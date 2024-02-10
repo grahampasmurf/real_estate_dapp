@@ -43,30 +43,9 @@ actor REDAO {
         highestBidder : ?Principal; // allow null
     };
 
-    type BidId = Nat;
-
-    type Bid = {
-        member : Principal; // The member who bid
-        bid : Nat; // the amount bid, in a currency whole amount
-    };
-
-    public type BidContent = {
-        #PropertyId : Nat; // Change the manifesto to the provided text
-        #BidAmount : Nat;
-        #Buyer : Principal; // Upgrade the member to a mentor with the provided principal
-    };
-
-    public type BidStatus = {
-        #Open;
-        #Accepted;
-        #Rejected;
-    };
-
     type HashMap<A, B> = HashMap.HashMap<A, B>;
 
-    var nextBidId : Nat = 0;
     var nextPropertyId : Nat = 0;
-    let bids = TrieMap.TrieMap<BidId, Bid>(Nat.equal, Hash.hash);
     let properties = TrieMap.TrieMap<PropertyId, ListedProperty>(Nat.equal, Hash.hash);
     let redao : HashMap<Principal, Member> = HashMap.HashMap<Principal, Member>(0, Principal.equal, Principal.hash);
 
@@ -175,48 +154,8 @@ actor REDAO {
         };
     };
 
-    func _computeBid(oldBid : Nat, newBid : Nat) : Result<Nat, Text> {
-        // real code would have to set bounds based on Int size
-        if (newBid > oldBid) return #ok(newBid);
-        return #err("Your bid was not high enough.");
-    };
-
-    // Create a new bid and returns its id
-    // Returns an error if the caller is not an Agent
-    // UPDATEME
-    public shared ({ caller }) func createBid(content : BidContent) : async Result<BidId, Text> {
-        // check if caller is member
-        if (not _isMember(caller)) {
-            return #err("Not a member");
-        };
-
-        let idSaved = nextBidId;
-        let bid : Bid = {
-            member = caller;
-            bid = 0;
-        };
-        bids.put(idSaved, bid);
-
-        nextBidId += 1;
-        return #ok(idSaved);
-    };
-
-    // Get the bid with the given id
-    // Returns an error if the bid does not exist
-    public query func getBid(id : BidId) : async Result<Bid, Text> {
-        switch (bids.get(id)) {
-            case (null) return #err("Nothing found");
-            case (?bid) return #ok(bid);
-        };
-    };
-
-    // Returns all the bids
-    public query func getAllBids() : async [Bid] {
-        return Iter.toArray(bids.vals());
-    };
-
     // create and get properties
-        // Create a new listing and returns its id
+    // Create a new listing and returns its id
     // Returns an error if the caller is not an Agent
     // UPDATEME
     public shared ({ caller }) func createProperty(address : Text, MLS : Nat) : async Result<PropertyId, Text> {
@@ -226,7 +165,7 @@ actor REDAO {
         };
 
         // only Agents can list a property
-        if(not _isAgent(caller)) return #err("Only Agents can create a Property Listing.");
+        if (not _isAgent(caller)) return #err("Only Agents can create a Property Listing.");
 
         let idSaved = nextPropertyId;
         let newProperty : ListedProperty = {
@@ -245,73 +184,103 @@ actor REDAO {
         nextPropertyId += 1;
         return #ok(idSaved);
     };
-    
-
 
     // Bid for the given property
     // Returns an error if the property does not exist or the bid is not the highest bid
-    public shared ({ caller }) func bidOnProperty(propertyId : PropertyId, bid : Bid) : async Result<(), Text> {
+    public shared ({ caller }) func bidOnProperty(propertyId : PropertyId, bid : Nat) : async Result<(), Text> {
         if (not _isMember(caller)) {
             return #err("Not a member; cannot bid");
         };
-        switch(properties.get(propertyId)) {
-            case(null) return #err("Property not found");
-            case(?property) {
-                if(property.status == #Inactive or proposal.status == #Sold) return #err("Property is not available.");
-                // Left off here.
-                for(principal in proposal.votes.vals()) {
-                    if(principal.member == caller) return #err("Already voted");
+        switch (properties.get(propertyId)) {
+            case (null) return #err("Property not found");
+            case (?property) {
+                if (property.status == #Inactive or property.status == #Sold) return #err("Property is not available.");
+                // check if already highest bidder
+                switch (property.highestBidder) {
+                    case (caller) return #err("Already highest bidder.");
                 };
                 // passed all checks
-                let newVoteCount = _computeVote(proposal.voteCount, vote.vote);
-                _burn(caller, 1);
-               // let newVote : Vote = {member = caller; vote = vote.vote;};
-                if(newVoteCount == -10) {
-                    let newProposal = {
-                        id = proposal.id;
-                        status = #Rejected;
-                        content = proposal.content;
-                        voteCount = newVoteCount;
-                        votes = proposal.votes;
-                        created = proposal.created;
-                        executed = null;
-                        creator = proposal.creator;
-                    };
-                    //  votes = Array.append<Vote>(proposal.votes, {member = caller; vote = vote.vote;});
-                    proposals.put(proposal.id, newProposal);
-                    return #ok();
+                if (property.highestBid >= bid) {
+                    let bidText = Nat.toText(bid);
+                    let highestBidText = Nat.toText(property.highestBid);
+                    return #err("Your bid of " # bidText # " did not exceed the highest bid of " # highestBidText # "!");
                 };
-                if(newVoteCount == 10) {
-                    let newProposal = {
-                        id = proposal.id;
-                        status = #Accepted;
-                        content = proposal.content;
-                        voteCount = newVoteCount;
-                        votes = proposal.votes;
-                        created = proposal.created;
-                        executed = null;
-                        creator = proposal.creator;
-                    };
-                    proposals.put(proposal.id, newProposal);
-                    return #ok();
+                // bid is high enough
+                let newProperty : ListedProperty = {
+                    id = propertyId;
+                    creator = property.creator;
+                    mls = property.mls;
+                    Features = "";
+                    address = property.address;
+                    created = property.created;
+                    highestBid = bid;
+                    highestBidder = ?caller;
+                    status = #Active;
                 };
-                // else, proposal remains open
-                    let newProposal = {
-                        id = proposal.id;
-                        status = #Open;
-                        content = proposal.content;
-                        voteCount = newVoteCount;
-                        votes = proposal.votes;
-                        created = proposal.created;
-                        executed = null;
-                        creator = proposal.creator;
-                    };
-                    proposals.put(proposal.id, newProposal);
+                properties.put(property.id, newProperty);
                 return #ok();
             };
         };
     };
 
+    public shared ({ caller }) func acceptHighestBidOnProperty(propertyId : PropertyId) : async Result<(), Text> {
+        // check if caller is member
+        if (not _isMember(caller)) {
+            return #err("Not a member");
+        };
 
+        // only Agents can list a property
+        if (not _isAgent(caller)) return #err("Only Agents can accept a bid.");
+
+        switch (properties.get(propertyId)) {
+            case (null) return #err("Property not found");
+            case (?property) {
+                let newProperty : ListedProperty = {
+                    id = propertyId;
+                    mls = property.mls;
+                    Features = "";
+                    address = property.address;
+                    created = property.created;
+                    creator = property.creator;
+                    highestBid = property.highestBid;
+                    highestBidder = property.highestBidder;
+                    status = #Sold;
+                };
+                properties.put(propertyId, newProperty);
+
+                return #ok();
+            };
+        };
+    };
+
+    public shared ({ caller }) func deactivatePropertyListing(propertyId : PropertyId) : async Result<(), Text> {
+        // check if caller is member
+        if (not _isMember(caller)) {
+            return #err("Not a member");
+        };
+
+        // only Agents can deactivate a property
+        if (not _isAgent(caller)) return #err("Only Agents can deactivate a property.");
+
+        switch (properties.get(propertyId)) {
+            case (null) return #err("Property not found");
+            case (?property) {
+                let newProperty : ListedProperty = {
+                    id = propertyId;
+                    mls = property.mls;
+                    Features = "";
+                    address = property.address;
+                    created = property.created;
+                    creator = property.creator;
+                    highestBid = property.highestBid;
+                    highestBidder = property.highestBidder;
+                    status = #Inactive;
+                };
+                properties.put(propertyId, newProperty);
+
+                return #ok();
+            };
+        };
+    };
 
 };
