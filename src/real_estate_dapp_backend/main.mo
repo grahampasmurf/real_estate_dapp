@@ -98,6 +98,7 @@ actor REDAO {
     // Returns an error if the Buyer does not exist or is not a Buyer
     // Returns an error if the caller is not an Agent
     // Only an Agent can call this function to promote a Buyer to an Agent
+    // UPDATEME - change to makeAnAgent
     public shared ({ caller }) func becomeAgent(buyer : Principal) : async Result<(), Text> {
         switch (redao.get(caller)) {
             case (?member1) {
@@ -196,8 +197,8 @@ actor REDAO {
             case (?property) {
                 if (property.status == #Inactive or property.status == #Sold) return #err("Property is not available.");
                 // check if already highest bidder
-                switch (property.highestBidder) {
-                    case (caller) return #err("Already highest bidder.");
+                if (property.highestBidder == ?caller) {
+                    return #err("Already highest bidder.");
                 };
                 // passed all checks
                 if (property.highestBid >= bid) {
@@ -282,5 +283,19 @@ actor REDAO {
             };
         };
     };
+
+    // Returns all the properties
+    public query func getAllProperties() : async [ListedProperty] {
+        return Iter.toArray(properties.vals());
+    };
+
+    // Returns all the members
+    public query func getAllDAOMembers() : async [Member] {
+        return Iter.toArray(redao.vals());
+    };
+
+    public shared query ({ caller }) func getMyself() : async Principal {
+        return caller;
+    }
 
 };
