@@ -1,23 +1,16 @@
 # real_estate_dapp
 
-Welcome to your new real_estate_dapp project and to the internet computer development community. By default, creating a new project adds this README and some template files to your project directory. You can edit these template files to customize your project and to include your own code to speed up the development cycle.
+Welcome to the real_estate_dapp project, our submission to the ICP Hackathon!
 
-To get started, you might want to explore the project directory structure and the default configuration file. Working with this project in your development environment will not affect any production deployment or identity tokens.
+The backend code, written in Motoko, is a simple set of functions that can manage a real estate dApp, with ability to create members (Buyers & Agents and maybe, in the future, Sellers).  Agents can create a property which will be listed as Active and can accept bids from Buyers. Highest bid will be tracked and Agents can at any time accept the highest bid, at which point the property will be marked as "Sold" and taken off the listing.
 
-To learn more before you start working with real_estate_dapp, see the following documentation available online:
+TO-DO list -
+1) We have a frontend HTML and CSS mock-up done, but it is not yet attached to the backend. That will be the next step.
+2) Integration with Juno for user authentication and data persistence.
+3) Adding more features and pulling data from websites to populate the property listings.
 
-- [Quick Start](https://internetcomputer.org/docs/current/developer-docs/setup/deploy-locally)
-- [SDK Developer Tools](https://internetcomputer.org/docs/current/developer-docs/setup/install)
-- [Motoko Programming Language Guide](https://internetcomputer.org/docs/current/motoko/main/motoko)
-- [Motoko Language Quick Reference](https://internetcomputer.org/docs/current/motoko/main/language-manual)
+We enjoyed the challenge and we're happy to be able to submit a working dApp! We look forward to more opportunities.
 
-If you want to start working on your project right away, you might want to try the following commands:
-
-```bash
-cd real_estate_dapp/
-dfx help
-dfx canister --help
-```
 
 ## Running the project locally
 
